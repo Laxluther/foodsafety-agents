@@ -65,7 +65,7 @@ def probe(model: str, timeout_s: int) -> dict:
         )
 
         tool_payloads, final = [], ""
-        for event in runner.run(user_id="b", session_id=session.id, new_message=message):
+        for event in runner.run(user_id="b", session_id=session.id, new_message=message):  # noqa: sync API is fine for a one-shot probe
             if not (event.content and event.content.parts):
                 continue
             for part in event.content.parts:

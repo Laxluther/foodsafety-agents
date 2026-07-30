@@ -113,6 +113,27 @@ class TestLiveApis:
         assert len(plddt) == 386, "residue count must match the UniProt sequence"
         assert abs(sum(plddt) / len(plddt) - s.value.mean_plddt) < 0.5
 
+    def test_plddt_bands_match_alphafold_reported_fractions(self):
+        """The viewer colours residues by B-factor; those bands must be the real ones.
+
+        Independently banding the parsed per-residue pLDDT has to reproduce the
+        fractions AlphaFold publishes for the same entry, or the structure is
+        being coloured by something other than genuine confidence.
+        """
+        from foodsafe.tools import alphafold
+
+        structure = alphafold.fetch_structure("P01012")
+        plddt = alphafold.per_residue_plddt(alphafold.fetch_pdb(structure.value))
+        total = len(plddt)
+
+        fraction = lambda lo, hi: sum(1 for b in plddt if lo < b <= hi) / total  # noqa: E731
+        reported = structure.value
+
+        assert fraction(90, 1000) == pytest.approx(reported.fraction_very_high, abs=0.02)
+        assert fraction(70, 90) == pytest.approx(reported.fraction_confident, abs=0.02)
+        assert fraction(50, 70) == pytest.approx(reported.fraction_low, abs=0.02)
+        assert fraction(0, 50) == pytest.approx(reported.fraction_very_low, abs=0.02)
+
     def test_pubmed_returns_real_citations_only(self):
         from foodsafe.tools import literature
 
