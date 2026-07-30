@@ -175,11 +175,16 @@ class AnalysisResult:
     agent_outputs: dict = field(default_factory=dict)
     tool_results: list = field(default_factory=list)
     ungrounded_numbers: list = field(default_factory=list)
+    ungrounded_identifiers: list = field(default_factory=list)
     ungrounded_by_agent: dict = field(default_factory=dict)
 
     @property
     def is_grounded(self) -> bool:
-        return not self.ungrounded_numbers and not any(self.ungrounded_by_agent.values())
+        return (
+            not self.ungrounded_numbers
+            and not self.ungrounded_identifiers
+            and not any(self.ungrounded_by_agent.values())
+        )
 
     def as_dict(self) -> dict:
         return {
@@ -188,6 +193,7 @@ class AnalysisResult:
             "agent_outputs": self.agent_outputs,
             "tool_results": self.tool_results,
             "ungrounded_numbers": [u.as_dict() for u in self.ungrounded_numbers],
+            "ungrounded_identifiers": [u.as_dict() for u in self.ungrounded_identifiers],
             "ungrounded_by_agent": {
                 agent: [u.as_dict() for u in found]
                 for agent, found in self.ungrounded_by_agent.items()
@@ -278,8 +284,9 @@ def analyse(
         agent_outputs=outputs,
         tool_results=tool_results,
         ungrounded_numbers=grounding.check(report, evidence),
+        ungrounded_identifiers=grounding.check_identifiers(report, evidence),
         ungrounded_by_agent={
-            name: grounding.check(text, evidence)
+            name: grounding.check(text, evidence) + grounding.check_identifiers(text, evidence)
             for name, text in outputs.items()
             if text
         },

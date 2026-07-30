@@ -128,3 +128,61 @@ class TestUpstreamFabrication:
 
     def test_real_value_still_passes(self):
         assert grounding.check("LogP is 2.28", self.TOOL_RESULTS) == []
+
+
+class TestIdentifierGrounding:
+    """Identifiers are quoted, not computed, so the numeric check cannot see them.
+
+    Observed in a real run: the report said "UniProt Accession: P0  012" while
+    resolve_protein had returned P01012. A mangled accession points a reader at
+    the wrong record, but carries no arithmetic to catch.
+    """
+
+    EVIDENCE = {
+        "tool_results": [
+            {"tool": "resolve_protein", "result": {"protein": {"accession": "P01012"}}},
+            {"tool": "resolve_compound", "result": {"compound": {"cid": 186907}}},
+            {"tool": "search_literature",
+             "result": {"citations": [{"pmid": "37062343"}, {"pmid": "31745739"}]}},
+        ]
+    }
+
+    def test_catches_the_observed_corruption(self):
+        found = grounding.check_identifiers("UniProt Accession: P0  012", self.EVIDENCE)
+        assert [f.text for f in found] == ["P0  012"]
+
+    def test_accepts_the_real_accession(self):
+        assert grounding.check_identifiers("UniProt Accession: P01012", self.EVIDENCE) == []
+
+    def test_catches_invented_pmid(self):
+        found = grounding.check_identifiers("see PMID: 99999999", self.EVIDENCE)
+        assert [f.text for f in found] == ["99999999"]
+
+    def test_accepts_real_pmids(self):
+        text = "reported in PMID: 37062343 and PMID 31745739"
+        assert grounding.check_identifiers(text, self.EVIDENCE) == []
+
+    def test_accepts_real_cid(self):
+        assert grounding.check_identifiers("PubChem CID 186907", self.EVIDENCE) == []
+
+    def test_numeric_check_misses_a_plausible_wrong_accession(self):
+        """Why this check has to exist separately.
+
+        P01013 is a well-formed accession for a different record. It contains no
+        free-standing number, so the numeric check sees nothing wrong with it.
+        """
+        assert grounding.check("UniProt Accession: P01013", self.EVIDENCE) == []
+        assert [f.text for f in grounding.check_identifiers("UniProt Accession: P01013", self.EVIDENCE)] == ["P01013"]
+
+    def test_numeric_check_mislabels_the_spaced_corruption(self):
+        """The space makes "012" parse as a number, so it is caught but misdescribed.
+
+        Reporting a corrupted accession as "the unsupported number 12" points a
+        reader at the wrong problem; the identifier check names it correctly.
+        """
+        numeric = grounding.check("UniProt Accession: P0  012", self.EVIDENCE)
+        assert [f.value for f in numeric] == [12.0]
+        assert [f.text for f in grounding.check_identifiers("UniProt Accession: P0  012", self.EVIDENCE)] == ["P0  012"]
+
+    def test_no_evidence_identifiers_means_no_claims(self):
+        assert grounding.check_identifiers("accession: P01012", {"tool_results": []}) == []

@@ -150,3 +150,35 @@ class TestLiveApis:
 
         cites = literature.search("zzzqqqxyzzy nonexistent compound 12345", max_results=5).value
         assert cites == []
+
+
+class TestJurisdictionNormalisation:
+    """A templated session value reached the tool as the literal string
+    "all jurisdictions" and matched no jurisdiction, so a real exceedance was
+    reported as "no published limit exists"."""
+
+    def test_placeholder_phrases_mean_no_filter(self):
+        from foodsafe.tools import regulatory
+
+        for phrase in ["all jurisdictions", "all", "", "  ", "none", "not provided", "any"]:
+            assert regulatory.normalise_jurisdiction(phrase) is None
+
+    def test_known_codes_are_case_insensitive(self):
+        from foodsafe.tools import regulatory
+
+        assert regulatory.normalise_jurisdiction("eu") == "EU"
+        assert regulatory.normalise_jurisdiction(" in ") == "IN"
+
+    def test_unknown_code_raises_rather_than_matching_nothing(self):
+        """A typo must not look like an absence of regulation."""
+        from foodsafe.tools import regulatory
+
+        with pytest.raises(regulatory.UnknownJurisdiction):
+            regulatory.normalise_jurisdiction("XX")
+
+    def test_the_failing_agent_call_now_succeeds(self):
+        from foodsafe.adk_tools import compare_to_regulatory_limits
+
+        result = compare_to_regulatory_limits("aflatoxins, total", 25.0, "all jurisdictions")
+        assert result["status"] == "success"
+        assert len(result["comparisons"]) == 3

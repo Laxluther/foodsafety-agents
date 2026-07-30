@@ -140,6 +140,34 @@ count as evidence for it.
 This is a guardrail, not a proof. It catches invented quantities, which is the specific
 failure mode that made the predecessor untrustworthy.
 
+### Choosing a local model
+
+Parameter count and marketing copy do not predict whether a model will call a tool with
+the right arguments and then report the result without embellishing it. `scripts/bench_models.py`
+measures it:
+
+```bash
+python scripts/bench_models.py                       # every installed model
+python scripts/bench_models.py --models gemma4:26b
+```
+
+Measured on an RTX 3050 6GB / 32GB RAM:
+
+| model | called tool | correct args | echoed CID | echoed formula | invented numbers | seconds |
+|---|---|---|---|---|---|---|
+| `gemma4:26b` | yes | yes | yes | yes | 0 | 33.3 |
+| `phi4-mini` (3.8B) | **no** | – | – | – | 0 | 27.0 |
+
+`phi4-mini` did not emit a tool call at all through ADK → LiteLLM → Ollama, despite
+function calling being its headline feature for edge devices. Whether that is the model
+or a prompt-template gap in the stack, the practical result is the same: it cannot drive
+this pipeline, and the 26B model is only ~6s slower per call. This is exactly why the
+benchmark exists — the assumption "smaller model built for function calling will be
+faster" was wrong in the only way that mattered.
+
+The `invented numbers` column is the one to watch when swapping models. It counts values
+in the reply that the tool never returned.
+
 ## Web viewer
 
 ```bash

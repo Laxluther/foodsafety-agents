@@ -108,6 +108,68 @@ def check(narrative: str, report, allow_small_integers: bool = True) -> list[Ung
     return findings
 
 
+# Identifiers are quoted, not computed, so a mangled one is a distinct failure
+# from an invented number and the numeric check cannot see it. Observed in a real
+# run: "UniProt Accession: P0  012" where the tool returned P01012.
+_LABELLED_ID = re.compile(
+    r"(?P<label>accession|PMID|CID|recall(?:\s+number)?)"
+    r"[:\s#]*"
+    r"(?P<value>[A-Za-z]?[A-Za-z0-9][A-Za-z0-9 \-]{2,18}?)"
+    r"(?=[\s,.;)\]]|$)",
+    re.IGNORECASE,
+)
+
+_ID_FIELDS = ("accession", "uniprot_accession", "pmid", "cid", "recall_number")
+
+
+def _squash(value: str) -> str:
+    return re.sub(r"[\s\-]+", "", str(value)).upper()
+
+
+def evidence_identifiers(evidence) -> set[str]:
+    """Every identifier the tools actually returned, whitespace-insensitive."""
+    data = evidence.as_dict() if hasattr(evidence, "as_dict") else evidence
+    found: set[str] = set()
+
+    def walk(node, key=None):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                walk(v, k)
+        elif isinstance(node, (list, tuple)):
+            for item in node:
+                walk(item, key)
+        elif node is not None and not isinstance(node, bool):
+            if key in _ID_FIELDS:
+                found.add(_squash(node))
+
+    walk(data)
+    return found
+
+
+def check_identifiers(narrative: str, evidence) -> list[Ungrounded]:
+    """Flag accessions, PMIDs and CIDs that the tools never returned.
+
+    A transcription error in an identifier is as misleading as an invented
+    number - it points a reader at the wrong record - but it carries no
+    arithmetic for the numeric check to catch.
+    """
+    known = evidence_identifiers(evidence)
+    if not known:
+        return []
+
+    findings = []
+    for match in _LABELLED_ID.finditer(narrative):
+        raw = match.group("value").strip()
+        squashed = _squash(raw)
+        if not squashed or squashed in known:
+            continue
+        start = match.start()
+        context = narrative[max(0, start - 30): match.end() + 30].replace("\n", " ")
+        findings.append(Ungrounded(text=raw, value=float("nan"), context=context.strip()))
+
+    return findings
+
+
 def format_findings(findings: list[Ungrounded]) -> str:
     if not findings:
         return "All numbers in the narrative trace back to the gathered evidence."

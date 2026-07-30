@@ -77,15 +77,47 @@ def _to_limit(row: dict, jurisdictions: dict) -> Limit:
     )
 
 
+class UnknownJurisdiction(ValueError):
+    """A jurisdiction filter that matches nothing, rather than silently doing so."""
+
+
+# Phrases that mean "no filter". Callers - including agents reading a templated
+# session value - naturally write these instead of leaving the field empty, and
+# passing them through as a literal filter silently matches nothing.
+_ANY_JURISDICTION = {"", "all", "all jurisdictions", "any", "none", "not provided", "null"}
+
+
+def normalise_jurisdiction(jurisdiction: str | None) -> str | None:
+    """Map a jurisdiction argument to a known code, or None meaning all.
+
+    An unrecognised code raises rather than quietly returning no limits, so a
+    typo surfaces as an error instead of an apparent absence of regulation.
+    """
+    if jurisdiction is None:
+        return None
+    cleaned = jurisdiction.strip()
+    if cleaned.lower() in _ANY_JURISDICTION:
+        return None
+
+    code = cleaned.upper()
+    known = set(_load()["jurisdictions"])
+    if code not in known:
+        raise UnknownJurisdiction(
+            f"unknown jurisdiction {jurisdiction!r}; known codes are {sorted(known)}"
+        )
+    return code
+
+
 def find_limits(toxin: str, jurisdiction: str | None = None) -> list[Limit]:
     """Published limits matching a toxin name, optionally filtered by jurisdiction."""
     data = _load()
+    code = normalise_jurisdiction(jurisdiction)
     needle = toxin.strip().lower()
     matches = []
     for row in data["limits"]:
         if needle not in row["toxin"].lower():
             continue
-        if jurisdiction and row["jurisdiction"] != jurisdiction.upper():
+        if code and row["jurisdiction"] != code:
             continue
         matches.append(_to_limit(row, data["jurisdictions"]))
     return matches
