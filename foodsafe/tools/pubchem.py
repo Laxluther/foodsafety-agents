@@ -5,11 +5,7 @@ molecular weight with `np.random.uniform(200, 800)`. A toxin's structure is a
 matter of public record; there is no reason to guess it.
 """
 
-from __future__ import annotations
-
-from dataclasses import asdict, dataclass
-
-from ..provenance import PUBCHEM, Provenance, Sourced
+from ..provenance import PUBCHEM, sourced
 from ._http import ApiError, get_json
 
 _BASE = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
@@ -21,23 +17,13 @@ _SMILES_KEYS = ("ConnectivitySMILES", "CanonicalSMILES", "IsomericSMILES", "SMIL
 _PROPERTIES = "ConnectivitySMILES,CanonicalSMILES,MolecularFormula,MolecularWeight,IUPACName"
 
 
-@dataclass(frozen=True)
-class Compound:
-    cid: int
-    name: str
-    smiles: str
-    formula: str
-    molecular_weight: float
-    iupac_name: str | None = None
+def resolve_compound(name: str) -> dict:
+    """Look up a compound by name.
 
-    def as_dict(self) -> dict:
-        return asdict(self)
-
-
-def resolve_compound(name: str) -> Sourced[Compound]:
-    """Look up a compound by name. Raises ApiError if PubChem has no match."""
-    url = f"{_BASE}/compound/name/{name}/property/{_PROPERTIES}/JSON"
-    payload = get_json(url)
+    Returns {"value": {cid, name, smiles, formula, molecular_weight, iupac_name},
+    "provenance": {...}}. Raises ApiError if PubChem has no match.
+    """
+    payload = get_json(f"{_BASE}/compound/name/{name}/property/{_PROPERTIES}/JSON")
 
     try:
         record = payload["PropertyTable"]["Properties"][0]
@@ -49,12 +35,12 @@ def resolve_compound(name: str) -> Sourced[Compound]:
         raise ApiError(f"PubChem returned no SMILES for {name!r}")
 
     cid = int(record["CID"])
-    compound = Compound(
-        cid=cid,
-        name=name,
-        smiles=smiles,
-        formula=record.get("MolecularFormula", ""),
-        molecular_weight=float(record["MolecularWeight"]),
-        iupac_name=record.get("IUPACName"),
-    )
-    return Sourced(compound, Provenance(url=f"{_WEB}/{cid}", **PUBCHEM))
+    compound = {
+        "cid": cid,
+        "name": name,
+        "smiles": smiles,
+        "formula": record.get("MolecularFormula", ""),
+        "molecular_weight": float(record["MolecularWeight"]),
+        "iupac_name": record.get("IUPACName"),
+    }
+    return sourced(compound, PUBCHEM, f"{_WEB}/{cid}")

@@ -12,7 +12,6 @@ The model runs locally through Ollama via LiteLLM, so no data leaves the machine
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
 
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.models.lite_llm import LiteLlm
@@ -168,38 +167,18 @@ could not be determined.
     )
 
 
-@dataclass
-class AnalysisResult:
-    request: str
-    report: str
-    agent_outputs: dict = field(default_factory=dict)
-    tool_results: list = field(default_factory=list)
-    ungrounded_numbers: list = field(default_factory=list)
-    ungrounded_identifiers: list = field(default_factory=list)
-    ungrounded_by_agent: dict = field(default_factory=dict)
-
-    @property
-    def is_grounded(self) -> bool:
-        return (
-            not self.ungrounded_numbers
-            and not self.ungrounded_identifiers
-            and not any(self.ungrounded_by_agent.values())
-        )
-
-    def as_dict(self) -> dict:
-        return {
-            "request": self.request,
-            "report": self.report,
-            "agent_outputs": self.agent_outputs,
-            "tool_results": self.tool_results,
-            "ungrounded_numbers": [u.as_dict() for u in self.ungrounded_numbers],
-            "ungrounded_identifiers": [u.as_dict() for u in self.ungrounded_identifiers],
-            "ungrounded_by_agent": {
-                agent: [u.as_dict() for u in found]
-                for agent, found in self.ungrounded_by_agent.items()
-            },
-            "is_grounded": self.is_grounded,
-        }
+def _result(request, report, outputs, tool_results, numbers, identifiers, by_agent) -> dict:
+    """Assemble the run result. `is_grounded` is false if anything was unsupported."""
+    return {
+        "request": request,
+        "report": report,
+        "agent_outputs": outputs,
+        "tool_results": tool_results,
+        "ungrounded_numbers": numbers,
+        "ungrounded_identifiers": identifiers,
+        "ungrounded_by_agent": by_agent,
+        "is_grounded": not numbers and not identifiers and not any(by_agent.values()),
+    }
 
 
 def analyse(
@@ -209,7 +188,7 @@ def analyse(
     limit_toxin: str | None = None,
     measured_ug_per_kg: float | None = None,
     jurisdiction: str | None = None,
-) -> AnalysisResult:
+) -> dict:
     """Run the pipeline and verify the report against the evidence it collected.
 
     Sample measurements are passed as structured arguments rather than left to be
@@ -278,14 +257,14 @@ def analyse(
     # actually returned, which is the only real evidence in the run.
     evidence = {"tool_results": tool_results, "request": request}
 
-    return AnalysisResult(
+    return _result(
         request=request,
         report=report,
-        agent_outputs=outputs,
+        outputs=outputs,
         tool_results=tool_results,
-        ungrounded_numbers=grounding.check(report, evidence),
-        ungrounded_identifiers=grounding.check_identifiers(report, evidence),
-        ungrounded_by_agent={
+        numbers=grounding.check(report, evidence),
+        identifiers=grounding.check_identifiers(report, evidence),
+        by_agent={
             name: grounding.check(text, evidence) + grounding.check_identifiers(text, evidence)
             for name, text in outputs.items()
             if text

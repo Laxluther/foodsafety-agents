@@ -44,9 +44,8 @@ def index() -> FileResponse:
 @app.post("/api/evidence")
 def gather_evidence(request: AnalysisRequest) -> dict:
     """Deterministic evidence gathering — no language model involved."""
-    query = evidence_report.Query(**request.model_dump())
-    result = evidence_report.assemble(query)
-    return {**result.as_dict(), "sources": result.sources()}
+    gathered = evidence_report.assemble(evidence_report.query(**request.model_dump()))
+    return {**gathered, "sources": evidence_report.sources(gathered)}
 
 
 @app.get("/api/limits")
@@ -64,15 +63,12 @@ def limits(
     """
     from foodsafe.tools import regulatory
 
-    if measured_ug_per_kg is None:
-        found = regulatory.find_limits(toxin, jurisdiction)
-        return {"comparisons": [], "limits": [limit.as_dict() for limit in found]}
-
     try:
-        comparisons = regulatory.compare(measured_ug_per_kg, toxin, jurisdiction)
-    except ValueError as exc:
+        if measured_ug_per_kg is None:
+            return {"comparisons": [], "limits": regulatory.find_limits(toxin, jurisdiction)}
+        return {"comparisons": regulatory.compare(measured_ug_per_kg, toxin, jurisdiction)}
+    except (ValueError, regulatory.UnknownJurisdiction) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"comparisons": [c.as_dict() for c in comparisons]}
 
 
 @app.get("/api/structure/{accession}.pdb", response_class=PlainTextResponse)
@@ -80,7 +76,7 @@ def structure_pdb(accession: str) -> str:
     """Proxy the AlphaFold PDB file so the browser viewer avoids a cross-origin fetch."""
     try:
         structure = alphafold.fetch_structure(accession)
-        return alphafold.fetch_pdb(structure.value)
+        return alphafold.fetch_pdb(structure["value"])
     except ApiError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -107,18 +103,16 @@ def agent_report(body: AgentRequest) -> dict:
     from foodsafe.llm import DEFAULT_MODEL
 
     try:
-        result = analyse(body.request, model_name=body.model or DEFAULT_MODEL)
+        return analyse(body.request, model_name=body.model or DEFAULT_MODEL)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"agent run failed: {exc}") from exc
-    return result.as_dict()
 
 
 @app.get("/api/models")
 def models() -> dict:
-    from foodsafe.llm import Ollama
+    from foodsafe import llm
 
-    client = Ollama()
-    return {"installed": client.installed_models(), "default": client.model}
+    return {"installed": llm.installed_models(), "default": llm.DEFAULT_MODEL}
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

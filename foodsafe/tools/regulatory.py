@@ -5,86 +5,33 @@ heuristics and random noise and then presented as a compliance verdict. A
 measured concentration compared against a published maximum level is a
 checkable statement; a synthesised risk score is not.
 
-The bundled limits table is a curated subset — see data/mycotoxin_limits.json.
-Regulations are amended, so `verify_url` is returned with every comparison.
+The bundled limits table is a curated subset -- see data/mycotoxin_limits.json.
+Regulations are amended, so `verify_url` travels with every comparison.
 """
 
-from __future__ import annotations
-
 import json
-from dataclasses import asdict, dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from ..provenance import OPENFDA, Provenance, Sourced
+from ..provenance import OPENFDA, sourced
 from ._http import ApiError, get_json
 
 _DATA = Path(__file__).resolve().parent.parent / "data" / "mycotoxin_limits.json"
 _OPENFDA = "https://api.fda.gov/food/enforcement.json"
 
-
-@dataclass(frozen=True)
-class Limit:
-    toxin: str
-    commodity: str
-    jurisdiction: str
-    jurisdiction_name: str
-    max_level_ug_per_kg: float
-    instrument: str
-    verify_url: str
-
-    def as_dict(self) -> dict:
-        return asdict(self)
-
-
-@dataclass(frozen=True)
-class Comparison:
-    measured_ug_per_kg: float
-    limit: Limit
-    exceeds: bool
-    ratio_of_limit: float
-
-    def as_dict(self) -> dict:
-        data = asdict(self)
-        data["limit"] = self.limit.as_dict()
-        return data
-
-    def statement(self) -> str:
-        verb = "exceeds" if self.exceeds else "is within"
-        return (
-            f"{self.measured_ug_per_kg} ug/kg {verb} the {self.limit.jurisdiction_name} "
-            f"maximum of {self.limit.max_level_ug_per_kg} ug/kg for "
-            f"{self.limit.toxin} in {self.limit.commodity} "
-            f"({self.limit.instrument})."
-        )
-
-
-@lru_cache(maxsize=1)
-def _load() -> dict:
-    return json.loads(_DATA.read_text(encoding="utf-8"))
-
-
-def _to_limit(row: dict, jurisdictions: dict) -> Limit:
-    meta = jurisdictions[row["jurisdiction"]]
-    return Limit(
-        toxin=row["toxin"],
-        commodity=row["commodity"],
-        jurisdiction=row["jurisdiction"],
-        jurisdiction_name=meta["name"],
-        max_level_ug_per_kg=row["max_level_ug_per_kg"],
-        instrument=meta["instrument"],
-        verify_url=meta["url"],
-    )
+# Phrases that mean "no filter". Callers -- including agents reading a templated
+# session value -- naturally write these instead of leaving the field empty, and
+# passing them through as a literal filter silently matches nothing.
+_ANY_JURISDICTION = {"", "all", "all jurisdictions", "any", "none", "not provided", "null"}
 
 
 class UnknownJurisdiction(ValueError):
     """A jurisdiction filter that matches nothing, rather than silently doing so."""
 
 
-# Phrases that mean "no filter". Callers - including agents reading a templated
-# session value - naturally write these instead of leaving the field empty, and
-# passing them through as a literal filter silently matches nothing.
-_ANY_JURISDICTION = {"", "all", "all jurisdictions", "any", "none", "not provided", "null"}
+@lru_cache(maxsize=1)
+def _load() -> dict:
+    return json.loads(_DATA.read_text(encoding="utf-8"))
 
 
 def normalise_jurisdiction(jurisdiction: str | None) -> str | None:
@@ -108,52 +55,78 @@ def normalise_jurisdiction(jurisdiction: str | None) -> str | None:
     return code
 
 
-def find_limits(toxin: str, jurisdiction: str | None = None) -> list[Limit]:
+def _to_limit(row: dict, jurisdictions: dict) -> dict:
+    meta = jurisdictions[row["jurisdiction"]]
+    return {
+        "toxin": row["toxin"],
+        "commodity": row["commodity"],
+        "jurisdiction": row["jurisdiction"],
+        "jurisdiction_name": meta["name"],
+        "max_level_ug_per_kg": row["max_level_ug_per_kg"],
+        "instrument": meta["instrument"],
+        "verify_url": meta["url"],
+    }
+
+
+def find_limits(toxin: str, jurisdiction: str | None = None) -> list[dict]:
     """Published limits matching a toxin name, optionally filtered by jurisdiction."""
     data = _load()
     code = normalise_jurisdiction(jurisdiction)
     needle = toxin.strip().lower()
-    matches = []
-    for row in data["limits"]:
-        if needle not in row["toxin"].lower():
-            continue
-        if code and row["jurisdiction"] != code:
-            continue
-        matches.append(_to_limit(row, data["jurisdictions"]))
-    return matches
+
+    return [
+        _to_limit(row, data["jurisdictions"])
+        for row in data["limits"]
+        if needle in row["toxin"].lower() and (not code or row["jurisdiction"] == code)
+    ]
 
 
-def compare(measured_ug_per_kg: float, toxin: str, jurisdiction: str | None = None) -> list[Comparison]:
+def statement(comparison: dict) -> str:
+    """Render a comparison as a sentence that names the instrument behind it."""
+    limit = comparison["limit"]
+    verb = "exceeds" if comparison["exceeds"] else "is within"
+    return (
+        f"{comparison['measured_ug_per_kg']} ug/kg {verb} the {limit['jurisdiction_name']} "
+        f"maximum of {limit['max_level_ug_per_kg']} ug/kg for "
+        f"{limit['toxin']} in {limit['commodity']} ({limit['instrument']})."
+    )
+
+
+def compare(
+    measured_ug_per_kg: float, toxin: str, jurisdiction: str | None = None
+) -> list[dict]:
     """Compare a measured concentration against every applicable published limit."""
     if measured_ug_per_kg < 0:
         raise ValueError("measured concentration cannot be negative")
 
     comparisons = []
     for limit in find_limits(toxin, jurisdiction):
+        maximum = limit["max_level_ug_per_kg"]
         comparisons.append(
-            Comparison(
-                measured_ug_per_kg=measured_ug_per_kg,
-                limit=limit,
-                exceeds=measured_ug_per_kg > limit.max_level_ug_per_kg,
-                ratio_of_limit=round(measured_ug_per_kg / limit.max_level_ug_per_kg, 3),
-            )
+            {
+                "measured_ug_per_kg": measured_ug_per_kg,
+                "limit": limit,
+                "exceeds": measured_ug_per_kg > maximum,
+                "ratio_of_limit": round(measured_ug_per_kg / maximum, 3),
+            }
         )
     return comparisons
 
 
-def recent_recalls(term: str, limit: int = 10) -> Sourced[list[dict]]:
+def recent_recalls(term: str, limit: int = 10) -> dict:
     """Real FDA food enforcement records mentioning a term.
 
     openFDA returns 404 when a search has no matches, which is a legitimate
     empty result rather than an error.
     """
-    params = {"search": f'reason_for_recall:"{term}"', "limit": limit}
     url = f"{_OPENFDA}?search=reason_for_recall:%22{term}%22&limit={limit}"
 
     try:
-        payload = get_json(_OPENFDA, params=params)
+        payload = get_json(
+            _OPENFDA, params={"search": f'reason_for_recall:"{term}"', "limit": limit}
+        )
     except ApiError:
-        return Sourced([], Provenance(url=url, **OPENFDA))
+        return sourced([], OPENFDA, url)
 
     recalls = [
         {
@@ -168,4 +141,4 @@ def recent_recalls(term: str, limit: int = 10) -> Sourced[list[dict]]:
         }
         for r in payload.get("results", [])
     ]
-    return Sourced(recalls, Provenance(url=url, **OPENFDA))
+    return sourced(recalls, OPENFDA, url)
