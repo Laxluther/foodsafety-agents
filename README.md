@@ -153,20 +153,30 @@ python scripts/bench_models.py --models gemma4:26b
 
 Measured on an RTX 3050 6GB / 32GB RAM:
 
-| model | called tool | correct args | echoed CID | echoed formula | invented numbers | seconds |
-|---|---|---|---|---|---|---|
-| `gemma4:26b` | yes | yes | yes | yes | 0 | 33.3 |
-| `phi4-mini` (3.8B) | **no** | – | – | – | 0 | 27.0 |
+| model | size | Ollama tool support | emits tool calls | drives the pipeline | seconds |
+|---|---|---|---|---|---|
+| `gemma4:26b` | 18GB | accepts | **yes** | **yes** | 33.3 |
+| `phi4-mini` | 2.5GB | accepts | no | no | 27.0 |
+| `gemma3n:e4b` | 7.5GB | **rejects** | – | no | 3.1 |
+| `gemma4:latest` | 9.6GB | rejects `/api/chat` | – | no | – |
 
-`phi4-mini` did not emit a tool call at all through ADK → LiteLLM → Ollama, despite
-function calling being its headline feature for edge devices. Whether that is the model
-or a prompt-template gap in the stack, the practical result is the same: it cannot drive
-this pipeline, and the 26B model is only ~6s slower per call. This is exactly why the
-benchmark exists — the assumption "smaller model built for function calling will be
-faster" was wrong in the only way that mattered.
+Only one of four installed models can actually drive this pipeline, and it is the largest.
 
-The `invented numbers` column is the one to watch when swapping models. It counts values
-in the reply that the tool never returned.
+The two failures fail differently, which is worth separating:
+
+- `gemma3n:e4b` is refused by Ollama outright — `"does not support tools"`. Its chat
+  template has no tool-calling support, so no amount of prompting reaches the model.
+- `phi4-mini` **is** accepted by Ollama with tools attached and still emitted no tool
+  call, even for an explicit `"Call t with x=1"`. That makes it model behaviour rather
+  than a packaging gap — worth stating plainly, since function calling is the headline
+  feature it is marketed on for edge devices.
+
+The going-in assumption, that a small model advertised for function calling would be the
+fast choice, was wrong in the only way that mattered. Measuring it took less time than
+arguing about it would have.
+
+When swapping models, the column to watch in the benchmark output is `invented numbers`:
+values in the reply that the tool never returned.
 
 ## Web viewer
 
