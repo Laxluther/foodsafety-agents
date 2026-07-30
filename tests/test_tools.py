@@ -1,0 +1,131 @@
+"""Offline tests for deterministic logic, plus opt-in live API smoke tests.
+
+Run everything:            python -m pytest tests/
+Skip the network tests:    python -m pytest tests/ -m "not live"
+"""
+
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from foodsafe.tools import chem, regulatory
+
+# Structures are stable public facts, so these are safe to pin.
+CAFFEINE = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"
+AFLATOXIN_B1 = "COC1=C2C3=C(C(=O)CC3)C(=O)OC2=C4C5C=COC5OC4=C1"
+
+
+class TestChem:
+    def test_caffeine_matches_published_values(self):
+        d = chem.describe(CAFFEINE).value
+        assert d.formula == "C8H10N4O2"
+        assert d.molecular_weight == pytest.approx(194.19, abs=0.02)
+        assert d.lipinski_violations == 0
+
+    def test_aflatoxin_b1_matches_pubchem(self):
+        """RDKit computing 312.28 from SMILES independently corroborates PubChem's 312.27."""
+        d = chem.describe(AFLATOXIN_B1).value
+        assert d.formula == "C17H12O6"
+        assert d.molecular_weight == pytest.approx(312.27, abs=0.05)
+
+    def test_descriptors_are_deterministic(self):
+        """The predecessor drew these from np.random; identical input must repeat."""
+        first = chem.describe(AFLATOXIN_B1).value.as_dict()
+        second = chem.describe(AFLATOXIN_B1).value.as_dict()
+        assert first == second
+
+    def test_invalid_smiles_raises_rather_than_inventing(self):
+        with pytest.raises(chem.InvalidStructure):
+            chem.describe("not-a-molecule")
+
+    def test_carries_provenance(self):
+        assert "RDKit" in chem.describe(CAFFEINE).provenance.source
+
+    def test_svg_depiction_renders(self):
+        svg = chem.to_svg(CAFFEINE)
+        assert svg.lstrip().startswith("<?xml") or "<svg" in svg
+
+
+class TestRegulatory:
+    def test_finds_limits_across_jurisdictions(self):
+        limits = regulatory.find_limits("aflatoxins, total")
+        assert {l.jurisdiction for l in limits} >= {"EU", "US", "IN"}
+
+    def test_comparison_flags_exceedance(self):
+        us = [c for c in regulatory.compare(25.0, "aflatoxins, total") if c.limit.jurisdiction == "US"][0]
+        assert us.exceeds is True
+        assert us.ratio_of_limit == pytest.approx(1.25)
+
+    def test_comparison_passes_when_within_limit(self):
+        us = [c for c in regulatory.compare(5.0, "aflatoxins, total") if c.limit.jurisdiction == "US"][0]
+        assert us.exceeds is False
+
+    def test_boundary_value_is_not_an_exceedance(self):
+        """At exactly the maximum level a sample is compliant, not in breach."""
+        us = [c for c in regulatory.compare(20.0, "aflatoxins, total") if c.limit.jurisdiction == "US"][0]
+        assert us.exceeds is False
+
+    def test_negative_measurement_rejected(self):
+        with pytest.raises(ValueError):
+            regulatory.compare(-1.0, "aflatoxin M1")
+
+    def test_statement_cites_its_instrument(self):
+        c = regulatory.compare(25.0, "aflatoxins, total", jurisdiction="EU")[0]
+        assert "2023/915" in c.statement()
+        assert c.limit.verify_url.startswith("http")
+
+    def test_every_bundled_limit_has_a_citable_source(self):
+        data = json.loads((Path(__file__).resolve().parents[1] / "foodsafe/data/mycotoxin_limits.json").read_text())
+        for row in data["limits"]:
+            meta = data["jurisdictions"][row["jurisdiction"]]
+            assert meta["instrument"] and meta["url"].startswith("http")
+            assert row["max_level_ug_per_kg"] > 0
+
+
+@pytest.mark.live
+class TestLiveApis:
+    """Hit the real public APIs. Skipped automatically when offline."""
+
+    def test_pubchem_resolves_aflatoxin(self):
+        from foodsafe.tools import pubchem
+
+        c = pubchem.resolve_compound("aflatoxin B1").value
+        assert c.cid == 186907
+        assert c.formula == "C17H12O6"
+
+    def test_uniprot_resolves_ovalbumin(self):
+        from foodsafe.tools import uniprot
+
+        p = uniprot.resolve_protein("ovalbumin", organism="Gallus gallus").value
+        assert p.accession == "P01012"
+        assert p.reviewed is True
+
+    def test_alphafold_structure_matches_uniprot_length(self):
+        from foodsafe.tools import alphafold
+
+        s = alphafold.fetch_structure("P01012")
+        pdb = alphafold.fetch_pdb(s.value)
+        plddt = alphafold.per_residue_plddt(pdb)
+        assert len(plddt) == 386, "residue count must match the UniProt sequence"
+        assert abs(sum(plddt) / len(plddt) - s.value.mean_plddt) < 0.5
+
+    def test_pubmed_returns_real_citations_only(self):
+        from foodsafe.tools import literature
+
+        cites = literature.interaction_evidence("ovalbumin", "aflatoxin B1", max_results=3).value
+        for c in cites:
+            assert c.pmid.isdigit()
+            assert c.url.endswith(f"/{c.pmid}/")
+            # No fabricated experimental fields may appear on a citation.
+            assert not hasattr(c, "binding_affinity")
+
+    def test_pubmed_empty_result_is_not_padded(self):
+        """A nonsense query must yield nothing rather than an invented record."""
+        from foodsafe.tools import literature
+
+        cites = literature.search("zzzqqqxyzzy nonexistent compound 12345", max_results=5).value
+        assert cites == []

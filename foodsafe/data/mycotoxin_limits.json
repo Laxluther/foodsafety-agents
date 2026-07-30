@@ -1,0 +1,111 @@
+{
+  "_comment": [
+    "Curated subset of published maximum levels / action levels for mycotoxins.",
+    "Each entry cites the legal instrument it came from and a URL for the primary text.",
+    "Regulations are amended: verify against the primary source before operational use.",
+    "Units are micrograms per kilogram (ug/kg), equivalent to ppb."
+  ],
+  "jurisdictions": {
+    "EU": {
+      "name": "European Union",
+      "instrument": "Commission Regulation (EU) 2023/915 on maximum levels for certain contaminants in food",
+      "url": "https://eur-lex.europa.eu/eli/reg/2023/915/oj"
+    },
+    "US": {
+      "name": "United States",
+      "instrument": "FDA action levels and guidance for mycotoxins in food and feed",
+      "url": "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/guidance-industry-action-levels-poisonous-or-deleterious-substances-human-food-and-animal-feed"
+    },
+    "IN": {
+      "name": "India",
+      "instrument": "Food Safety and Standards (Contaminants, Toxins and Residues) Regulations, 2011",
+      "url": "https://www.fssai.gov.in/cms/food-safety-and-standards-regulations.php"
+    }
+  },
+  "limits": [
+    {
+      "toxin": "aflatoxin B1",
+      "commodity": "groundnuts, ready-to-eat",
+      "jurisdiction": "EU",
+      "max_level_ug_per_kg": 2.0
+    },
+    {
+      "toxin": "aflatoxins, total (B1+B2+G1+G2)",
+      "commodity": "groundnuts, ready-to-eat",
+      "jurisdiction": "EU",
+      "max_level_ug_per_kg": 4.0
+    },
+    {
+      "toxin": "aflatoxin M1",
+      "commodity": "raw and heat-treated milk",
+      "jurisdiction": "EU",
+      "max_level_ug_per_kg": 0.05
+    },
+    {
+      "toxin": "ochratoxin A",
+      "commodity": "roasted coffee beans and ground roasted coffee",
+      "jurisdiction": "EU",
+      "max_level_ug_per_kg": 3.0
+    },
+    {
+      "toxin": "patulin",
+      "commodity": "fruit juices and fruit nectars",
+      "jurisdiction": "EU",
+      "max_level_ug_per_kg": 50.0
+    },
+    {
+      "toxin": "deoxynivalenol",
+      "commodity": "cereals placed on the market for the final consumer",
+      "jurisdiction": "EU",
+      "max_level_ug_per_kg": 750.0
+    },
+    {
+      "toxin": "aflatoxins, total (B1+B2+G1+G2)",
+      "commodity": "all foods except milk",
+      "jurisdiction": "US",
+      "max_level_ug_per_kg": 20.0
+    },
+    {
+      "toxin": "aflatoxin M1",
+      "commodity": "milk",
+      "jurisdiction": "US",
+      "max_level_ug_per_kg": 0.5
+    },
+    {
+      "toxin": "deoxynivalenol",
+      "commodity": "finished wheat products for human consumption",
+      "jurisdiction": "US",
+      "max_level_ug_per_kg": 1000.0
+    },
+    {
+      "toxin": "patulin",
+      "commodity": "apple juice and apple juice ingredients",
+      "jurisdiction": "US",
+      "max_level_ug_per_kg": 50.0
+    },
+    {
+      "toxin": "aflatoxins, total (B1+B2+G1+G2)",
+      "commodity": "cereals, nuts, oilseeds and spices",
+      "jurisdiction": "IN",
+      "max_level_ug_per_kg": 15.0
+    },
+    {
+      "toxin": "aflatoxin M1",
+      "commodity": "milk",
+      "jurisdiction": "IN",
+      "max_level_ug_per_kg": 0.5
+    },
+    {
+      "toxin": "ochratoxin A",
+      "commodity": "wheat, barley and rye",
+      "jurisdiction": "IN",
+      "max_level_ug_per_kg": 20.0
+    },
+    {
+      "toxin": "patulin",
+      "commodity": "apple juice and apple juice concentrate",
+      "jurisdiction": "IN",
+      "max_level_ug_per_kg": 50.0
+    }
+  ]
+}
