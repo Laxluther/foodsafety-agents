@@ -49,6 +49,32 @@ def gather_evidence(request: AnalysisRequest) -> dict:
     return {**result.as_dict(), "sources": result.sources()}
 
 
+@app.get("/api/limits")
+def limits(
+    toxin: str = Query(..., min_length=1),
+    measured_ug_per_kg: float | None = None,
+    jurisdiction: str | None = None,
+) -> dict:
+    """Regulatory comparison only.
+
+    Limits are indexed by toxin group ("aflatoxins, total") while the compound
+    lookup wants the specific molecule ("aflatoxin B1"), so the UI needs these
+    separately. Keeping it off /api/evidence avoids re-querying UniProt,
+    AlphaFold, PubMed and openFDA just to re-read a local JSON table.
+    """
+    from foodsafe.tools import regulatory
+
+    if measured_ug_per_kg is None:
+        found = regulatory.find_limits(toxin, jurisdiction)
+        return {"comparisons": [], "limits": [limit.as_dict() for limit in found]}
+
+    try:
+        comparisons = regulatory.compare(measured_ug_per_kg, toxin, jurisdiction)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"comparisons": [c.as_dict() for c in comparisons]}
+
+
 @app.get("/api/structure/{accession}.pdb", response_class=PlainTextResponse)
 def structure_pdb(accession: str) -> str:
     """Proxy the AlphaFold PDB file so the browser viewer avoids a cross-origin fetch."""

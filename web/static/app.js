@@ -161,28 +161,30 @@ $("query").addEventListener("submit", async (event) => {
    "literature-panel", "recalls-panel", "sources-panel", "warnings"].forEach(hide);
 
   const measured = form.get("measured_ug_per_kg");
+  const jurisdiction = form.get("jurisdiction") || "";
+  // The compound lookup wants the specific molecule ("aflatoxin B1"); regulatory
+  // limits are indexed by group ("aflatoxins, total"), so they are fetched apart.
   const body = {
     protein: form.get("protein") || null,
     organism: form.get("organism") || null,
-    contaminant: form.get("limit_toxin") || form.get("contaminant") || null,
-    measured_ug_per_kg: measured ? Number(measured) : null,
-    jurisdiction: form.get("jurisdiction") || null,
+    contaminant: form.get("contaminant") || null,
   };
-  // The compound lookup wants the specific contaminant; limits are indexed by group.
-  const compoundName = form.get("contaminant");
 
   try {
-    const data = await fetch("/api/evidence", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, contaminant: compoundName }),
-    }).then((r) => r.json());
-
-    const limits = await fetch("/api/evidence", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then((r) => r.json());
+    const [data, limits] = await Promise.all([
+      fetch("/api/evidence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then((r) => r.json()),
+      (() => {
+        const toxin = form.get("limit_toxin") || form.get("contaminant");
+        if (!toxin || !measured) return Promise.resolve({ comparisons: [] });
+        const params = new URLSearchParams({ toxin, measured_ug_per_kg: measured });
+        if (jurisdiction) params.set("jurisdiction", jurisdiction);
+        return fetch(`/api/limits?${params}`).then((r) => r.json());
+      })(),
+    ]);
 
     renderWarnings(data.warnings);
     if (data.compound) renderCompound(data.compound.value, data.descriptors?.value);
