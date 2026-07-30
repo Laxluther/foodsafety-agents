@@ -148,41 +148,65 @@ class AnalysisResult:
     request: str
     report: str
     agent_outputs: dict = field(default_factory=dict)
+    tool_results: list = field(default_factory=list)
     ungrounded_numbers: list = field(default_factory=list)
+    ungrounded_by_agent: dict = field(default_factory=dict)
 
     @property
     def is_grounded(self) -> bool:
-        return not self.ungrounded_numbers
+        return not self.ungrounded_numbers and not any(self.ungrounded_by_agent.values())
 
     def as_dict(self) -> dict:
         return {
             "request": self.request,
             "report": self.report,
             "agent_outputs": self.agent_outputs,
+            "tool_results": self.tool_results,
             "ungrounded_numbers": [u.as_dict() for u in self.ungrounded_numbers],
+            "ungrounded_by_agent": {
+                agent: [u.as_dict() for u in found]
+                for agent, found in self.ungrounded_by_agent.items()
+            },
             "is_grounded": self.is_grounded,
         }
 
 
 def analyse(request: str, model_name: str = DEFAULT_MODEL, user_id: str = "local") -> AnalysisResult:
     """Run the pipeline and verify the report against the evidence it collected."""
+    import asyncio
+
     from google.adk.runners import InMemoryRunner
     from google.genai import types
 
     from . import grounding
 
     runner = InMemoryRunner(agent=build_agents(model_name), app_name="foodsafety-agents")
-    session = runner.session_service.create_session_sync(
-        app_name="foodsafety-agents", user_id=user_id
-    )
 
-    message = types.Content(role="user", parts=[types.Part(text=request)])
-    for _ in runner.run(user_id=user_id, session_id=session.id, new_message=message):
-        pass
+    tool_results: list = []
 
-    state = runner.session_service.get_session_sync(
-        app_name="foodsafety-agents", user_id=user_id, session_id=session.id
-    ).state
+    async def _run() -> dict:
+        session = await runner.session_service.create_session(
+            app_name="foodsafety-agents", user_id=user_id
+        )
+        message = types.Content(role="user", parts=[types.Part(text=request)])
+        async for event in runner.run_async(
+            user_id=user_id, session_id=session.id, new_message=message
+        ):
+            # Capture what the tools actually returned. This, not the agents'
+            # prose, is the ground truth every generated number is checked against.
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    response = getattr(part, "function_response", None)
+                    if response is not None:
+                        tool_results.append(
+                            {"tool": response.name, "result": response.response}
+                        )
+        finished = await runner.session_service.get_session(
+            app_name="foodsafety-agents", user_id=user_id, session_id=session.id
+        )
+        return finished.state
+
+    state = asyncio.run(_run())
 
     outputs = {
         key: state.get(key, "")
@@ -195,10 +219,22 @@ def analyse(request: str, model_name: str = DEFAULT_MODEL, user_id: str = "local
     }
     report = state.get("final_report", "")
 
-    # The specialists' outputs are the evidence the reporter was given, so the
-    # report is checked against exactly what it was allowed to draw from.
-    findings = grounding.check(report, {"agent_outputs": outputs})
+    # Ground against the tool results, not against the agents' own prose.
+    # Checking the report against the specialists' text only verifies the last
+    # hop: if a specialist invents a value the reporter copies it faithfully and
+    # the check passes. Every agent is therefore checked against what the tools
+    # actually returned, which is the only real evidence in the run.
+    evidence = {"tool_results": tool_results, "request": request}
 
     return AnalysisResult(
-        request=request, report=report, agent_outputs=outputs, ungrounded_numbers=findings
+        request=request,
+        report=report,
+        agent_outputs=outputs,
+        tool_results=tool_results,
+        ungrounded_numbers=grounding.check(report, evidence),
+        ungrounded_by_agent={
+            name: grounding.check(text, evidence)
+            for name, text in outputs.items()
+            if text
+        },
     )

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>foodsafety-agents — evidence viewer</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+</head>
+<body>
+<header>
+  <h1>foodsafety-agents</h1>
+  <p class="sub">Every value traced to a real source. Nothing simulated.</p>
+</header>
+
+<main>
+  <form id="query" class="panel">
+    <div class="grid">
+      <label>Protein
+        <input name="protein" value="ovalbumin" placeholder="ovalbumin">
+      </label>
+      <label>Organism
+        <input name="organism" value="Gallus gallus" placeholder="Gallus gallus">
+      </label>
+      <label>Contaminant
+        <input name="contaminant" value="aflatoxin B1" placeholder="aflatoxin B1">
+      </label>
+      <label>Measured (µg/kg)
+        <input name="measured_ug_per_kg" type="number" step="0.01" value="25">
+      </label>
+      <label>Jurisdiction
+        <select name="jurisdiction">
+          <option value="">All</option>
+          <option value="EU">EU</option>
+          <option value="US">US</option>
+          <option value="IN">India</option>
+        </select>
+      </label>
+      <label>Toxin limit lookup
+        <input name="limit_toxin" value="aflatoxins, total" placeholder="aflatoxins, total">
+      </label>
+    </div>
+    <button type="submit" id="run">Gather evidence</button>
+    <span id="status" class="status"></span>
+  </form>
+
+  <section id="warnings" class="panel warn" hidden></section>
+
+  <div class="columns">
+    <section id="structure-panel" class="panel" hidden>
+      <h2>Protein structure</h2>
+      <div id="viewer"></div>
+      <div class="legend">
+        <span><i style="background:#0053D6"></i>pLDDT &gt; 90 very high</span>
+        <span><i style="background:#65CBF3"></i>70–90 confident</span>
+        <span><i style="background:#FFDB13"></i>50–70 low</span>
+        <span><i style="background:#FF7D45"></i>&lt; 50 very low</span>
+      </div>
+      <dl id="structure-facts"></dl>
+      <p class="note">Structure from AlphaFold DB (Google DeepMind), coloured by the
+        real per-residue pLDDT stored in the B-factor column. pLDDT is a prediction
+        confidence, not an experimental measurement.</p>
+    </section>
+
+    <section id="compound-panel" class="panel" hidden>
+      <h2>Contaminant</h2>
+      <div id="molecule"></div>
+      <dl id="compound-facts"></dl>
+      <p class="note">Structure from PubChem; descriptors computed with RDKit.
+        Deterministic — the same SMILES always gives the same numbers.</p>
+    </section>
+  </div>
+
+  <section id="regulatory-panel" class="panel" hidden>
+    <h2>Regulatory position</h2>
+    <div id="regulatory"></div>
+  </section>
+
+  <section id="literature-panel" class="panel" hidden>
+    <h2>Published evidence</h2>
+    <div id="literature"></div>
+  </section>
+
+  <section id="recalls-panel" class="panel" hidden>
+    <h2>FDA enforcement records</h2>
+    <div id="recalls"></div>
+  </section>
+
+  <section id="sources-panel" class="panel" hidden>
+    <h2>Sources consulted</h2>
+    <ul id="sources"></ul>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

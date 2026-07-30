@@ -101,6 +101,60 @@ for c in regulatory.compare(25.0, "aflatoxins, total"):
 # aflatoxins, total (B1+B2+G1+G2) in all foods except milk (FDA action levels...)
 ```
 
+## Agents
+
+Five specialists run as a Google ADK `SequentialAgent`, each holding only the tools its
+role needs — structural biologist, chemist, literature analyst, compliance officer, and a
+reporter that synthesises their findings. The model runs locally through LiteLLM to
+Ollama, so nothing leaves the machine.
+
+```bash
+ollama pull qwen3:4b          # any tool-calling model works
+export FOODSAFE_MODEL=qwen3:4b
+```
+
+```python
+from foodsafe.agents import analyse
+
+result = analyse("Assess ovalbumin against aflatoxin B1; a groundnut sample measured 25 ug/kg.")
+print(result.report)
+print(result.is_grounded)        # False if the model introduced an unsupported number
+```
+
+### The grounding check
+
+A language model can invent a figure where the deterministic layer cannot, so every
+number the reporter writes is checked back against the evidence the agents actually
+gathered:
+
+```python
+grounding.check("Binding affinity was Kd = 4.73 uM by surface plasmon resonance.", evidence)
+# [Ungrounded(text='4.73', value=4.73, context='Binding affinity was Kd = 4.73 uM by ...')]
+```
+
+That is the predecessor's exact failure, caught automatically. Numbers cannot be
+laundered into looking supported: booleans do not ground `1`, digits inside identifiers
+like `AF-P01012-F1` are not measurements, and a number appearing in a source URL does not
+count as evidence for it.
+
+This is a guardrail, not a proof. It catches invented quantities, which is the specific
+failure mode that made the predecessor untrustworthy.
+
+## Web viewer
+
+```bash
+python -m uvicorn web.app:app --reload
+# http://127.0.0.1:8000
+```
+
+The protein is rendered with 3Dmol.js and coloured by the **real per-residue pLDDT**
+parsed from the B-factor column of the AlphaFold PDB, using AlphaFold's published
+confidence bands. The contaminant is drawn by RDKit from the PubChem structure.
+Regulatory comparisons show the measured value against the published maximum with a link
+to the primary legal text, and every source consulted is listed at the bottom of the page.
+
+Evidence rendering does not require a language model — facts first, interpretation second.
+
 ## Tests
 
 ```bash

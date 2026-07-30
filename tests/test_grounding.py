@@ -96,3 +96,35 @@ class TestEvidenceNumbers:
     def test_booleans_are_not_numbers(self):
         """True must not ground the number 1."""
         assert grounding.evidence_numbers({"exceeds": True}) == set()
+
+
+class TestUpstreamFabrication:
+    """A specialist that invents a value must not be laundered by the reporter.
+
+    Grounding the final report against the agents' own prose only verifies the
+    last hop. If the chemist fabricates a logP the reporter copies it verbatim
+    and the check passes. Observed in a real run: the report carried
+    "LogP ... approximately 1.2" while RDKit had returned 2.28.
+    """
+
+    TOOL_RESULTS = {
+        "tool_results": [
+            {"tool": "describe_molecule",
+             "result": {"status": "success",
+                        "descriptors": {"molecular_weight": 312.28, "logp": 2.28, "tpsa": 74.97}}},
+        ]
+    }
+
+    FABRICATED = "LogP: (Source: PubChem) Approximately 1.2"
+
+    def test_agent_prose_launders_the_invented_value(self):
+        """Reproduces the false negative: checking against prose lets 1.2 through."""
+        laundered = {"agent_outputs": {"chemistry_findings": self.FABRICATED}}
+        assert grounding.check(self.FABRICATED, laundered) == []
+
+    def test_tool_results_catch_it(self):
+        findings = grounding.check(self.FABRICATED, self.TOOL_RESULTS)
+        assert [f.value for f in findings] == [1.2]
+
+    def test_real_value_still_passes(self):
+        assert grounding.check("LogP is 2.28", self.TOOL_RESULTS) == []

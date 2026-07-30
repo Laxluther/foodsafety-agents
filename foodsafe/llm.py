@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import requests
 
-DEFAULT_MODEL = os.environ.get("FOODSAFE_MODEL", "gemma4:latest")
+DEFAULT_MODEL = os.environ.get("FOODSAFE_MODEL", "gemma4:26b")
 DEFAULT_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
 

@@ -1,5 +1,7 @@
+fastapi==0.141.1
 google-adk==2.6.0
 litellm==1.94.0
 pytest==9.1.1
 rdkit==2026.3.4
 requests==2.34.2
+uvicorn==0.52.0
