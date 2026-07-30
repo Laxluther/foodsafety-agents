@@ -3,94 +3,291 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>foodsafety-agents — evidence viewer</title>
+<title>ToxiTrace — traceable food safety evidence</title>
+<meta name="description" content="Food contaminant analysis built only from published data: AlphaFold structures, RDKit descriptors, PubMed literature and EU/FDA/FSSAI limits. Nothing estimated.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
-<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<script src="https://3Dmol.org/build/3Dmol-min.js" defer></script>
 </head>
 <body>
-<header>
-  <h1>foodsafety-agents</h1>
-  <p class="sub">Every value traced to a real source. Nothing simulated.</p>
+
+<header class="topbar">
+  <a class="wordmark" href="#top">
+    <span class="wordmark-ramp" aria-hidden="true"></span>
+    ToxiTrace
+  </a>
+  <nav class="topnav">
+    <a href="#what">What it is</a>
+    <a href="#pipeline">How it works</a>
+    <a href="#ask">Ask</a>
+    <a href="#sources">Data sources</a>
+    <a class="topnav-cta" href="#run">Run an analysis</a>
+  </nav>
 </header>
 
-<main>
-  <form id="query" class="panel">
-    <div class="grid">
-      <label>Protein
-        <input name="protein" value="ovalbumin" placeholder="ovalbumin">
-      </label>
-      <label>Organism
-        <input name="organism" value="Gallus gallus" placeholder="Gallus gallus">
-      </label>
-      <label>Contaminant
-        <input name="contaminant" value="aflatoxin B1" placeholder="aflatoxin B1">
-      </label>
-      <label>Measured (µg/kg)
-        <input name="measured_ug_per_kg" type="number" step="0.01" value="25">
-      </label>
-      <label>Jurisdiction
-        <select name="jurisdiction">
-          <option value="">All</option>
-          <option value="EU">EU</option>
-          <option value="US">US</option>
-          <option value="IN">India</option>
-        </select>
-      </label>
-      <label>Toxin limit lookup
-        <input name="limit_toxin" value="aflatoxins, total" placeholder="aflatoxins, total">
-      </label>
-    </div>
-    <button type="submit" id="run">Gather evidence</button>
-    <span id="status" class="status"></span>
-  </form>
+<main id="top">
 
-  <section id="warnings" class="panel warn" hidden></section>
+  <section class="hero">
+    <p class="eyebrow">Food safety evidence</p>
+    <h1>Every number has a source.<br><em>Or it doesn't appear.</em></h1>
+    <p class="lede">
+      ToxiTrace analyses food proteins and contaminants using published data only —
+      structures from AlphaFold, molecular properties computed with RDKit, literature
+      from PubMed, and limits from EU, FDA and FSSAI regulation. Nothing is estimated,
+      and nothing is generated to look plausible.
+    </p>
 
-  <div class="columns">
-    <section id="structure-panel" class="panel" hidden>
-      <h2>Protein structure</h2>
-      <div id="viewer"></div>
-      <div class="legend">
-        <span><i style="background:#0053D6"></i>pLDDT &gt; 90 very high</span>
-        <span><i style="background:#65CBF3"></i>70–90 confident</span>
-        <span><i style="background:#FFDB13"></i>50–70 low</span>
-        <span><i style="background:#FF7D45"></i>&lt; 50 very low</span>
+    <figure class="ledger" aria-label="Example results, each shown with the source it came from">
+      <figcaption class="ledger-head">
+        <span>Ovalbumin · aflatoxin B1 · groundnut sample</span>
+        <span class="ledger-tag">live example</span>
+      </figcaption>
+
+      <div class="row" style="--i:0">
+        <span class="row-key">Molecular weight</span>
+        <span class="row-val">312.28</span>
+        <span class="row-unit">g/mol</span>
+        <span class="row-src">RDKit, computed from PubChem <b>CID 186907</b></span>
       </div>
-      <dl id="structure-facts"></dl>
-      <p class="note">Structure from AlphaFold DB (Google DeepMind), coloured by the
-        real per-residue pLDDT stored in the B-factor column. pLDDT is a prediction
-        confidence, not an experimental measurement.</p>
+      <div class="row" style="--i:1">
+        <span class="row-key">Mean pLDDT</span>
+        <span class="row-val">92.12</span>
+        <span class="row-unit">confidence</span>
+        <span class="row-src">AlphaFold DB, UniProt <b>P01012</b></span>
+      </div>
+      <div class="row" style="--i:2">
+        <span class="row-key">Sequence length</span>
+        <span class="row-val">386</span>
+        <span class="row-unit">residues</span>
+        <span class="row-src">UniProtKB, reviewed (Swiss-Prot)</span>
+      </div>
+      <div class="row row-alert" style="--i:3">
+        <span class="row-key">Measured level</span>
+        <span class="row-val">25.0</span>
+        <span class="row-unit">µg/kg</span>
+        <span class="row-src">1.25× the FDA action level of 20 µg/kg</span>
+      </div>
+    </figure>
+
+    <div class="hero-actions">
+      <a class="btn" href="#run">Run an analysis</a>
+      <a class="btn btn-quiet" href="#what">What it does</a>
+    </div>
+  </section>
+
+  <div class="ramp-rule" role="presentation"></div>
+
+  <section id="what" class="band">
+    <div class="band-grid">
+      <div>
+        <p class="eyebrow">What it is</p>
+        <h2>A reader for evidence that already exists</h2>
+        <p>
+          Give it a food protein and a contaminant. ToxiTrace looks both up in public
+          scientific databases, calculates what can be calculated exactly, finds the
+          published research, and checks any measurement you supply against real
+          regulatory limits — each one citing the law behind it.
+        </p>
+        <p>
+          Results arrive as a sourced report. Every figure carries the database, the
+          accession and the retrieval time, so you can check it against the original.
+        </p>
+      </div>
+      <div class="wont">
+        <p class="eyebrow eyebrow-alt">What it won't do</p>
+        <ul>
+          <li><b>No predicted binding affinities.</b> Credible docking needs proper software and experimental validation. An invented number is worse than no number.</li>
+          <li><b>No overall risk score.</b> A measurement compared against a published limit is checkable. A synthesised 0–10 score is not.</li>
+          <li><b>No filling of gaps.</b> If a source has nothing, the report says so. Absence of evidence is a finding.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="pipeline" class="band band-tint">
+    <p class="eyebrow">How it works</p>
+    <h2>Six steps, in this order</h2>
+    <p class="band-lede">
+      The order is not presentational. A structure cannot be fetched before an accession is
+      resolved, and nothing can be checked until the values exist.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <span class="step-n">01</span>
+        <h3>Resolve</h3>
+        <p>Your protein name becomes a reviewed UniProtKB entry with a stable accession. Your contaminant becomes a PubChem record with a real structure.</p>
+      </li>
+      <li>
+        <span class="step-n">02</span>
+        <h3>Fetch</h3>
+        <p>The deposited AlphaFold structure is retrieved for that accession, with per-residue confidence — looked up, not folded locally.</p>
+      </li>
+      <li>
+        <span class="step-n">03</span>
+        <h3>Compute</h3>
+        <p>RDKit derives molecular weight, logP, TPSA and Lipinski violations from the structure. Same input, same answer, every time.</p>
+      </li>
+      <li>
+        <span class="step-n">04</span>
+        <h3>Cite</h3>
+        <p>PubMed is searched for work on that protein and contaminant. You get the papers that exist, with PMIDs — or an explicit note that none are indexed.</p>
+      </li>
+      <li>
+        <span class="step-n">05</span>
+        <h3>Compare</h3>
+        <p>A measured concentration is checked against published maximum levels in the EU, US and India, each naming its legal instrument.</p>
+      </li>
+      <li>
+        <span class="step-n">06</span>
+        <h3>Verify</h3>
+        <p>Every figure and record number in the written summary is checked back against what was actually retrieved. Anything that doesn't match is flagged, not printed quietly.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="sources" class="band">
+    <p class="eyebrow">Data sources</p>
+    <h2>Six public databases, no private corpus</h2>
+    <ul class="sourcelist">
+      <li><a href="https://alphafold.ebi.ac.uk/" target="_blank" rel="noopener">AlphaFold DB</a><span>Protein structures &amp; pLDDT</span><em>Google DeepMind / EMBL-EBI · CC-BY-4.0</em></li>
+      <li><a href="https://www.uniprot.org/" target="_blank" rel="noopener">UniProtKB</a><span>Protein identity &amp; sequence</span><em>CC-BY-4.0</em></li>
+      <li><a href="https://pubchem.ncbi.nlm.nih.gov/" target="_blank" rel="noopener">PubChem</a><span>Compound structures</span><em>NCBI · public domain</em></li>
+      <li><a href="https://pubmed.ncbi.nlm.nih.gov/" target="_blank" rel="noopener">PubMed</a><span>Published literature</span><em>NCBI E-utilities</em></li>
+      <li><a href="https://open.fda.gov/" target="_blank" rel="noopener">openFDA</a><span>Food enforcement records</span><em>US FDA</em></li>
+      <li><a href="https://www.rdkit.org/" target="_blank" rel="noopener">RDKit</a><span>Molecular descriptors</span><em>BSD-3-Clause</em></li>
+    </ul>
+  </section>
+
+  <section id="ask" class="band band-tint">
+    <p class="eyebrow">Ask</p>
+    <h2>Put a question in your own words</h2>
+    <p class="band-lede">
+      It looks the answer up in the same records the analysis uses, and cites what it
+      found. It only covers food safety — anything else is turned down, and it will not
+      tell you whether something is safe for you personally.
+    </p>
+
+    <div class="chat panel">
+      <div id="thread" class="thread">
+        <div class="msg msg-sys">
+          <p>Try one of these, or write your own.</p>
+          <div class="chips">
+            <button type="button" class="chip">What is the EU limit for aflatoxin B1 in groundnuts?</button>
+            <button type="button" class="chip">Molecular weight of patulin?</button>
+            <button type="button" class="chip">Any FDA recalls for aflatoxin in spices?</button>
+          </div>
+        </div>
+      </div>
+      <form id="ask-form" class="ask-form">
+        <label class="sr-only" for="ask-input">Your question</label>
+        <input id="ask-input" name="question" placeholder="Ask about a contaminant, a limit, or a food protein…" autocomplete="off">
+        <button type="submit" id="ask-btn">Ask</button>
+      </form>
+      <p class="footnote">Answers take a moment: each one runs a real lookup before replying.</p>
+    </div>
+  </section>
+
+  <div class="ramp-rule" role="presentation"></div>
+
+  <section id="run" class="band">
+    <p class="eyebrow">Analysis</p>
+    <h2>Run it</h2>
+    <p class="band-lede">
+      Defaults describe a groundnut sample tested for aflatoxin B1 against chicken ovalbumin.
+      Change any field. Results are looked up and shown directly — the findings come first, any written summary comes after.
+    </p>
+
+    <form id="query" class="panel form">
+      <div class="fields">
+        <label>Protein
+          <input name="protein" value="ovalbumin" placeholder="ovalbumin" autocomplete="off">
+          <small>Common or scientific name</small>
+        </label>
+        <label>Organism
+          <input name="organism" value="Gallus gallus" placeholder="Gallus gallus" autocomplete="off">
+          <small>Optional, narrows the match</small>
+        </label>
+        <label>Contaminant
+          <input name="contaminant" value="aflatoxin B1" placeholder="aflatoxin B1" autocomplete="off">
+          <small>Looked up in PubChem</small>
+        </label>
+        <label>Toxin group for limits
+          <input name="limit_toxin" value="aflatoxins, total" placeholder="aflatoxins, total" autocomplete="off">
+          <small>Regulations are written per group</small>
+        </label>
+        <label>Measured level
+          <input name="measured_ug_per_kg" type="number" step="0.01" min="0" value="25">
+          <small>µg/kg (ppb). Leave blank to skip</small>
+        </label>
+        <label>Jurisdiction
+          <select name="jurisdiction">
+            <option value="">All</option>
+            <option value="EU">European Union</option>
+            <option value="US">United States</option>
+            <option value="IN">India</option>
+          </select>
+          <small>Which limits to check against</small>
+        </label>
+      </div>
+      <div class="form-foot">
+        <button type="submit" id="run-btn">Gather evidence</button>
+        <span id="status" class="status" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+
+    <section id="warnings" class="panel notice" hidden></section>
+
+    <div class="results">
+      <section id="structure-panel" class="panel" hidden>
+        <h3 class="panel-h">Protein structure</h3>
+        <div id="viewer" aria-label="Interactive 3D protein structure, coloured by prediction confidence"></div>
+        <ul class="ramp-legend">
+          <li><i data-band="vhigh"></i>&gt; 90 very high</li>
+          <li><i data-band="conf"></i>70–90 confident</li>
+          <li><i data-band="low"></i>50–70 low</li>
+          <li><i data-band="vlow"></i>&lt; 50 very low</li>
+        </ul>
+        <dl id="structure-facts" class="facts"></dl>
+        <p class="footnote">Coloured by real per-residue pLDDT from the B-factor column. pLDDT is a prediction confidence, not a measurement.</p>
+      </section>
+
+      <section id="compound-panel" class="panel" hidden>
+        <h3 class="panel-h">Contaminant</h3>
+        <div id="molecule"></div>
+        <dl id="compound-facts" class="facts"></dl>
+        <p class="footnote">Structure from PubChem, descriptors computed with RDKit. Deterministic for a given structure.</p>
+      </section>
+    </div>
+
+    <section id="regulatory-panel" class="panel" hidden>
+      <h3 class="panel-h">Regulatory position</h3>
+      <div id="regulatory"></div>
     </section>
 
-    <section id="compound-panel" class="panel" hidden>
-      <h2>Contaminant</h2>
-      <div id="molecule"></div>
-      <dl id="compound-facts"></dl>
-      <p class="note">Structure from PubChem; descriptors computed with RDKit.
-        Deterministic — the same SMILES always gives the same numbers.</p>
+    <section id="literature-panel" class="panel" hidden>
+      <h3 class="panel-h">Published evidence</h3>
+      <div id="literature"></div>
     </section>
-  </div>
 
-  <section id="regulatory-panel" class="panel" hidden>
-    <h2>Regulatory position</h2>
-    <div id="regulatory"></div>
-  </section>
+    <section id="recalls-panel" class="panel" hidden>
+      <h3 class="panel-h">FDA enforcement records</h3>
+      <div id="recalls"></div>
+    </section>
 
-  <section id="literature-panel" class="panel" hidden>
-    <h2>Published evidence</h2>
-    <div id="literature"></div>
-  </section>
-
-  <section id="recalls-panel" class="panel" hidden>
-    <h2>FDA enforcement records</h2>
-    <div id="recalls"></div>
-  </section>
-
-  <section id="sources-panel" class="panel" hidden>
-    <h2>Sources consulted</h2>
-    <ul id="sources"></ul>
+    <section id="sources-panel" class="panel" hidden>
+      <h3 class="panel-h">Sources consulted</h3>
+      <ul id="sources-used" class="used"></ul>
+    </section>
   </section>
 </main>
+
+<footer class="foot">
+  <p><b>ToxiTrace</b> — research and educational tool. Not a regulatory instrument, and it issues no compliance certification.</p>
+  <p>Bundled limits are a curated subset; verify against the primary legal text before operational use. Structural data from AlphaFold DB is CC-BY-4.0 (Jumper et al., <i>Nature</i> 2021; Varadi et al., <i>NAR</i> 2024).</p>
+</footer>
 
 <script src="/static/app.js"></script>
 </body>

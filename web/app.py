@@ -108,6 +108,27 @@ def agent_report(body: AgentRequest) -> dict:
         raise HTTPException(status_code=503, detail=f"agent run failed: {exc}") from exc
 
 
+class Question(BaseModel):
+    question: str
+    model: str | None = None
+
+
+@app.post("/api/ask")
+def ask(body: Question) -> dict:
+    """Answer a food safety question, or refuse it.
+
+    Refusals are decided before any model runs, so an out-of-scope question
+    returns immediately and costs nothing.
+    """
+    from foodsafe import assistant
+    from foodsafe.llm import DEFAULT_MODEL
+
+    try:
+        return assistant.ask(body.question, model_name=body.model or DEFAULT_MODEL)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=503, detail=f"assistant unavailable: {exc}") from exc
+
+
 @app.get("/api/models")
 def models() -> dict:
     from foodsafe import llm
