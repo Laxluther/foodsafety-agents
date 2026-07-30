@@ -95,8 +95,17 @@ not attach experimental values to any citation.
         model=model,
         description="Compares measurements against published regulatory limits.",
         instruction=_HOUSE_RULES + """
-Your job: if the request contains a measured concentration, call
-compare_to_regulatory_limits. Also call recent_recalls for the contaminant.
+The sample details were supplied as structured fields, not prose. Use them exactly:
+
+  contaminant for limit lookup: {limit_toxin}
+  measured concentration:       {measured_ug_per_kg} ug/kg
+  jurisdiction:                 {jurisdiction}
+
+If the measured concentration is "not provided", skip the comparison and say so.
+Otherwise call compare_to_regulatory_limits with exactly those values - do not
+re-read them from the conversation text.
+
+Also call recent_recalls for the contaminant.
 
 Report each jurisdiction separately, naming the legal instrument, and state
 plainly whether the measurement exceeds the limit. Do not produce an overall
@@ -171,8 +180,21 @@ class AnalysisResult:
         }
 
 
-def analyse(request: str, model_name: str = DEFAULT_MODEL, user_id: str = "local") -> AnalysisResult:
-    """Run the pipeline and verify the report against the evidence it collected."""
+def analyse(
+    request: str,
+    model_name: str = DEFAULT_MODEL,
+    user_id: str = "local",
+    limit_toxin: str | None = None,
+    measured_ug_per_kg: float | None = None,
+    jurisdiction: str | None = None,
+) -> AnalysisResult:
+    """Run the pipeline and verify the report against the evidence it collected.
+
+    Sample measurements are passed as structured arguments rather than left to be
+    parsed out of the request text. A small model asked to extract "25 ug/kg" from
+    prose will sometimes report that no measurement was given, so the values are
+    seeded into session state and read from there.
+    """
     import asyncio
 
     from google.adk.runners import InMemoryRunner
@@ -186,7 +208,15 @@ def analyse(request: str, model_name: str = DEFAULT_MODEL, user_id: str = "local
 
     async def _run() -> dict:
         session = await runner.session_service.create_session(
-            app_name="foodsafety-agents", user_id=user_id
+            app_name="foodsafety-agents",
+            user_id=user_id,
+            state={
+                "limit_toxin": limit_toxin or "not provided",
+                "measured_ug_per_kg": (
+                    "not provided" if measured_ug_per_kg is None else measured_ug_per_kg
+                ),
+                "jurisdiction": jurisdiction or "all jurisdictions",
+            },
         )
         message = types.Content(role="user", parts=[types.Part(text=request)])
         async for event in runner.run_async(
