@@ -11,6 +11,7 @@ The model runs locally through Ollama via LiteLLM, so no data leaves the machine
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 from google.adk.agents import LlmAgent, SequentialAgent
@@ -33,9 +34,24 @@ You are part of a food safety evidence system. Absolute rules:
 """
 
 
+# LiteLLM defaults to a 600s timeout, which a large model partially offloaded to
+# CPU can exceed on a single generation - the reporter in particular, since it is
+# handed all four specialists' findings at once.
+LLM_TIMEOUT_SECONDS = int(os.environ.get("FOODSAFE_LLM_TIMEOUT", "3600"))
+
+# Keeping the model resident avoids paying the load cost again at every step of
+# the sequence; an 18GB model takes ~30s just to come back off disk.
+OLLAMA_KEEP_ALIVE = os.environ.get("FOODSAFE_KEEP_ALIVE", "30m")
+
+
 def _model(model_name: str) -> LiteLlm:
     """Route ADK through LiteLLM to a local Ollama model."""
-    return LiteLlm(model=f"ollama_chat/{model_name}", api_base=DEFAULT_BASE_URL)
+    return LiteLlm(
+        model=f"ollama_chat/{model_name}",
+        api_base=DEFAULT_BASE_URL,
+        timeout=LLM_TIMEOUT_SECONDS,
+        keep_alive=OLLAMA_KEEP_ALIVE,
+    )
 
 
 def build_agents(model_name: str = DEFAULT_MODEL) -> SequentialAgent:
