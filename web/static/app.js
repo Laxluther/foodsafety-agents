@@ -52,7 +52,9 @@ async function renderStructure(structure) {
 
   const host = $("viewer");
   host.innerHTML = "";
-  const viewer = $3Dmol.createViewer(host, { backgroundColor: "white" });
+  const dark = document.documentElement.dataset.theme === "dark";
+  const viewer = $3Dmol.createViewer(host, { backgroundColor: dark ? "#0f151c" : "#ffffff" });
+  window.__toxitraceViewer = viewer;
   viewer.addModel(pdb, "pdb");
   viewer.setStyle({}, { cartoon: { colorfunc: (atom) => plddtColour(atom.b) } });
   viewer.zoomTo();
@@ -267,4 +269,36 @@ $("ask-form").addEventListener("submit", (event) => {
 
 document.querySelectorAll(".chip").forEach((chip) => {
   chip.addEventListener("click", () => askQuestion(chip.textContent.trim()));
+});
+
+/* ---------- theme ---------- */
+
+const THEME_KEY = "toxitrace-theme";
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const button = $("theme-toggle");
+  if (button) {
+    button.setAttribute("aria-label",
+      theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
+  }
+  // The structure viewer draws its own canvas, so it needs telling separately.
+  if (window.__toxitraceViewer) {
+    window.__toxitraceViewer.setBackgroundColor(theme === "dark" ? "#0f151c" : "#ffffff");
+    window.__toxitraceViewer.render();
+  }
+}
+
+// Saved choice wins; otherwise follow the operating system.
+const savedTheme = localStorage.getItem(THEME_KEY);
+applyTheme(savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+
+$("theme-toggle")?.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+});
+
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+  if (!localStorage.getItem(THEME_KEY)) applyTheme(event.matches ? "dark" : "light");
 });

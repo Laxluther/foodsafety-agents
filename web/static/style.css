@@ -23,12 +23,43 @@
   --pass:     #12693c;
   --pass-bg:  #eef7f1;
 
+  /* UI accent follows the theme; the pLDDT ramp above never does. */
+  --accent:    #0053d6;
+  --viewer-bg: #ffffff;
+  --scrim:     rgba(242, 245, 247, .88);
+
   --gutter: clamp(1.25rem, 4vw, 4.5rem);
   --shell: calc(100% - var(--gutter) * 2);
   --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
 }
+
+/* The four pLDDT values are AlphaFold's published confidence colours. They are
+   data, not styling, and stay identical in both themes - otherwise the legend
+   would stop describing the structure sitting next to it. Only surfaces, text
+   and the UI accent change here. */
+[data-theme="dark"] {
+  --ink:      #e4ebf1;
+  --ink-soft: #9dabb6;
+  --ink-faint:#6d7d89;
+  --paper:    #0d1117;
+  --card:     #151b23;
+  --rule:     #29323b;
+  --rule-soft:#1e252d;
+
+  --alarm:    #ff8a80;
+  --alarm-bg: #2a1512;
+  --pass:     #6bd48b;
+  --pass-bg:  #10241b;
+
+  --accent:    #6aa9ff;
+  --viewer-bg: #0f151c;
+  --scrim:     rgba(13, 17, 23, .86);
+}
+
+html { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
 
 * { box-sizing: border-box; }
 
@@ -43,7 +74,7 @@ body {
 a { color: inherit; }
 
 :focus-visible {
-  outline: 2px solid var(--plddt-vhigh);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
@@ -61,8 +92,10 @@ a { color: inherit; }
 
 h1 {
   margin: 0 0 1.1rem;
-  font: 700 clamp(2.4rem, 6vw, 4.1rem)/1.02 var(--cond);
+  max-width: 18ch;
+  font: 700 clamp(2.2rem, 4.1vw, 3.45rem)/1.04 var(--cond);
   letter-spacing: -.022em;
+  text-wrap: balance;
 }
 
 h1 em {
@@ -87,7 +120,7 @@ h2 {
   justify-content: space-between;
   gap: 1rem;
   padding: .7rem var(--gutter);
-  background: rgba(242, 245, 247, .88);
+  background: var(--scrim);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--rule);
 }
@@ -128,7 +161,7 @@ h2 {
   font-weight: 500;
 }
 
-.topnav-cta:hover { background: var(--ink); color: #fff !important; }
+.topnav-cta:hover { background: var(--ink); color: var(--paper) !important; }
 
 /* ---------- hero ---------- */
 
@@ -140,8 +173,8 @@ h2 {
 }
 
 .lede {
-  max-width: 64ch;
-  margin: 0 0 2.4rem;
+  max-width: 52ch;
+  margin: 0 0 2.2rem;
   font-size: 1.08rem;
   color: var(--ink-soft);
 }
@@ -158,19 +191,20 @@ h2 {
 
 .ledger-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 1rem;
+  gap: .25rem 1rem;
   padding: .6rem .95rem;
   border-bottom: 1px solid var(--rule-soft);
   font: 500 .74rem/1.4 var(--mono);
   color: var(--ink-faint);
 }
 
-.ledger-tag { color: var(--plddt-vhigh); }
+.ledger-tag { color: var(--accent); }
 
 .row {
   display: grid;
-  grid-template-columns: 12.5rem auto 5rem 1fr;
+  grid-template-columns: 10rem auto 4.2rem minmax(0, 1fr);
   align-items: baseline;
   gap: .75rem;
   padding: .72rem .95rem;
@@ -192,8 +226,9 @@ h2 {
 .row-src {
   position: relative;
   padding-left: 1.6rem;
-  font: 400 .8rem/1.45 var(--mono);
+  font: 400 .78rem/1.45 var(--mono);
   color: var(--ink-soft);
+  text-wrap: pretty;
 }
 
 /* the hairline that ties a value to its origin */
@@ -207,7 +242,7 @@ h2 {
   background: var(--plddt-conf);
 }
 
-.row-src b { font-weight: 600; color: var(--ink); }
+.row-src b { font-weight: 600; color: var(--ink); white-space: nowrap; }
 
 .row-alert .row-val { color: var(--alarm); }
 .row-alert .row-src::before { background: var(--plddt-vlow); }
@@ -220,12 +255,12 @@ h2 {
   border: 1px solid var(--ink);
   border-radius: 2px;
   background: var(--ink);
-  color: #fff;
+  color: var(--paper);
   font: 500 .93rem/1 var(--sans);
   text-decoration: none;
 }
 
-.btn:hover { background: #000; }
+.btn:hover { background: var(--ink-soft); border-color: var(--ink-soft); }
 
 .btn-quiet {
   background: transparent;
@@ -301,7 +336,7 @@ h2 {
 .step-n {
   font: 600 .74rem/1 var(--mono);
   letter-spacing: .1em;
-  color: var(--plddt-vhigh);
+  color: var(--accent);
 }
 
 .steps h3 {
@@ -393,7 +428,7 @@ h2 {
   border: 0;
   border-radius: 2px;
   background: var(--ink);
-  color: #fff;
+  color: var(--paper);
   font: 500 .93rem/1 var(--sans);
   cursor: pointer;
 }
@@ -411,13 +446,26 @@ h2 {
   align-items: start;
 }
 
+/* Above this width the hero is two blocks side by side: the argument on the
+   left, the evidence it is making a claim about on the right. */
+@media (min-width: 1120px) {
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: clamp(2.5rem, 5vw, 5rem);
+    align-items: center;
+  }
+  .ledger { margin-bottom: 0; }
+  .lede { margin-bottom: 2rem; }
+}
+
 @media (min-width: 1500px) {
-  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 4rem; align-items: end; }
-  .hero .eyebrow, .hero h1, .lede { grid-column: 1; }
-  .ledger { grid-column: 2; grid-row: 1 / span 4; align-self: center; margin-bottom: 0; }
-  .hero-actions { grid-column: 1; }
-  .steps { grid-template-columns: repeat(6, 1fr); }
+  .steps { grid-template-columns: repeat(3, 1fr); }
   .sourcelist { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 1900px) {
+  .steps { grid-template-columns: repeat(6, 1fr); }
 }
 
 .results .panel { margin-bottom: 0; }
@@ -429,7 +477,7 @@ h2 {
   border: 1px solid var(--rule);
   border-radius: 2px;
   overflow: hidden;
-  background: #fff;
+  background: var(--viewer-bg);
 }
 
 #molecule {
@@ -438,10 +486,12 @@ h2 {
   padding: .6rem;
   border: 1px solid var(--rule);
   border-radius: 2px;
-  background: #fff;
+  background: var(--card);
 }
 
 #molecule img { max-width: 100%; height: auto; }
+/* RDKit draws in black ink; invert so the molecule stays legible on dark. */
+[data-theme="dark"] #molecule img { filter: invert(1) hue-rotate(180deg); }
 
 .ramp-legend {
   display: flex;
@@ -500,7 +550,7 @@ h2 {
   padding: .12rem .45rem;
   border-radius: 2px;
   background: var(--ink);
-  color: #fff;
+  color: var(--paper);
   font: 600 .7rem/1.5 var(--mono);
 }
 
@@ -531,7 +581,7 @@ td { font-family: var(--mono); font-size: .78rem; }
 .used li { padding: .42rem 0; border-bottom: 1px solid var(--rule-soft); font-size: .87rem; }
 .used .lic { font: 400 .72rem/1 var(--mono); color: var(--ink-faint); margin-left: .5rem; }
 
-.notice { background: #fffbeb; border-color: #e8d9a8; border-left: 3px solid var(--plddt-low); }
+.notice { background: color-mix(in srgb, var(--plddt-low) 12%, var(--card)); border-color: color-mix(in srgb, var(--plddt-low) 40%, var(--rule)); border-left: 3px solid var(--plddt-low); }
 .notice h3 { margin: 0 0 .5rem; font: 600 .9rem/1 var(--sans); }
 .notice ul { margin: 0; padding-left: 1.1rem; font-size: .87rem; color: var(--ink-soft); }
 
@@ -612,7 +662,7 @@ td { font-family: var(--mono); font-size: .78rem; }
   padding: .55rem .85rem;
   border-radius: 3px 3px 0 3px;
   background: var(--ink);
-  color: #fff;
+  color: var(--paper);
   font-family: var(--mono);
   font-size: .85rem;
 }
@@ -667,7 +717,7 @@ td { font-family: var(--mono); font-size: .78rem; }
   border: 0;
   border-radius: 2px;
   background: var(--ink);
-  color: #fff;
+  color: var(--paper);
   font: 500 .93rem/1 var(--sans);
   cursor: pointer;
 }
@@ -739,10 +789,43 @@ td { font-family: var(--mono); font-size: .78rem; }
     z-index: 40;
     gap: 0;
     padding: .55rem var(--gutter) calc(.55rem + env(safe-area-inset-bottom));
-    background: rgba(255, 255, 255, .95);
+    background: var(--scrim);
     backdrop-filter: blur(10px);
     border-top: 1px solid var(--rule);
   }
   .hero-actions .btn { flex: 1; text-align: center; }
   .hero-actions .btn-quiet { display: none; }
+}
+
+
+/* ---------- theme toggle ---------- */
+
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--card);
+  cursor: pointer;
+}
+
+.theme-toggle:hover { border-color: var(--ink-soft); }
+
+/* A half-filled disc, rotated between themes: one mark, two readings. */
+.theme-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ink);
+  background: linear-gradient(90deg, var(--ink) 0 50%, transparent 50%);
+  transition: transform .3s ease;
+}
+
+[data-theme="dark"] .theme-dot { transform: rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-dot { transition: none; }
 }

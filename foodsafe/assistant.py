@@ -15,7 +15,7 @@ model choosing to behave.
 import re
 
 from . import adk_tools, grounding
-from .llm import DEFAULT_BASE_URL, DEFAULT_MODEL
+from .llm import DEFAULT_MODEL, OLLAMA_BASE_URL, PROVIDER
 
 # Vocabulary that marks a question as belonging to this domain.
 _IN_SCOPE_TERMS = {
@@ -114,16 +114,23 @@ def in_scope(question: str) -> tuple[bool, str]:
 def build_agent(model_name: str = DEFAULT_MODEL):
     """One assistant holding every lookup tool."""
     from google.adk.agents import LlmAgent
-    from google.adk.models.lite_llm import LiteLlm
+
+    if PROVIDER == "gemini":
+        model = model_name
+    else:
+        # --- local Ollama path (kept, selected with FOODSAFE_PROVIDER=ollama) ---
+        from google.adk.models.lite_llm import LiteLlm
+
+        model = LiteLlm(
+            model=f"ollama_chat/{model_name}",
+            api_base=OLLAMA_BASE_URL,
+            timeout=3600,
+            keep_alive="30m",
+        )
 
     return LlmAgent(
         name="toxitrace_assistant",
-        model=LiteLlm(
-            model=f"ollama_chat/{model_name}",
-            api_base=DEFAULT_BASE_URL,
-            timeout=3600,
-            keep_alive="30m",
-        ),
+        model=model,
         description="Answers food safety questions using public scientific records.",
         instruction=_SYSTEM,
         tools=adk_tools.ALL_TOOLS,

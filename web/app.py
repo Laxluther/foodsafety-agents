@@ -133,7 +133,7 @@ def ask(body: Question) -> dict:
 def models() -> dict:
     from foodsafe import llm
 
-    return {"installed": llm.installed_models(), "default": llm.DEFAULT_MODEL}
+    return {**llm.describe_provider(), "installed_local": llm.installed_models()}
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

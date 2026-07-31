@@ -24,25 +24,36 @@
     <a href="#ask">Ask</a>
     <a href="#sources">Data sources</a>
     <a class="topnav-cta" href="#run">Run an analysis</a>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch theme">
+      <span class="theme-dot" aria-hidden="true"></span>
+    </button>
   </nav>
 </header>
 
 <main id="top">
 
   <section class="hero">
+    <div class="hero-text">
     <p class="eyebrow">Food safety evidence</p>
     <h1>Every number has a source.<br><em>Or it doesn't appear.</em></h1>
     <p class="lede">
-      ToxiTrace analyses food proteins and contaminants using published data only —
-      structures from AlphaFold, molecular properties computed with RDKit, literature
-      from PubMed, and limits from EU, FDA and FSSAI regulation. Nothing is estimated,
-      and nothing is generated to look plausible.
+      ToxiTrace checks food proteins and contaminants against six public scientific
+      databases and the food safety laws of three regions. Every figure it shows you
+      names where it came from. Nothing is guessed, and nothing is written just because
+      it would sound convincing.
     </p>
+
+    
+    <div class="hero-actions">
+      <a class="btn" href="#run">Run an analysis</a>
+      <a class="btn btn-quiet" href="#what">What it does</a>
+    </div>
+    </div>
 
     <figure class="ledger" aria-label="Example results, each shown with the source it came from">
       <figcaption class="ledger-head">
         <span>Ovalbumin · aflatoxin B1 · groundnut sample</span>
-        <span class="ledger-tag">live example</span>
+        <span class="ledger-tag">worked example</span>
       </figcaption>
 
       <div class="row" style="--i:0">
@@ -70,11 +81,6 @@
         <span class="row-src">1.25× the FDA action level of 20 µg/kg</span>
       </div>
     </figure>
-
-    <div class="hero-actions">
-      <a class="btn" href="#run">Run an analysis</a>
-      <a class="btn btn-quiet" href="#what">What it does</a>
-    </div>
   </section>
 
   <div class="ramp-rule" role="presentation"></div>
@@ -83,24 +89,25 @@
     <div class="band-grid">
       <div>
         <p class="eyebrow">What it is</p>
-        <h2>A reader for evidence that already exists</h2>
+        <h2>It finds the evidence. It doesn't invent any.</h2>
         <p>
-          Give it a food protein and a contaminant. ToxiTrace looks both up in public
-          scientific databases, calculates what can be calculated exactly, finds the
-          published research, and checks any measurement you supply against real
-          regulatory limits — each one citing the law behind it.
+          Name a food protein and a contaminant. ToxiTrace finds both in public scientific
+          databases, measures the contaminant's properties directly from its structure,
+          pulls the published research on the pair, and checks any lab result you have
+          against the legal limits in the EU, US and India.
         </p>
         <p>
-          Results arrive as a sourced report. Every figure carries the database, the
-          accession and the retrieval time, so you can check it against the original.
+          What comes back is a report you can audit. Each figure names the database it came
+          from, the record ID, and when it was fetched — so you can open the original and
+          confirm it yourself.
         </p>
       </div>
       <div class="wont">
         <p class="eyebrow eyebrow-alt">What it won't do</p>
         <ul>
-          <li><b>No predicted binding affinities.</b> Credible docking needs proper software and experimental validation. An invented number is worse than no number.</li>
-          <li><b>No overall risk score.</b> A measurement compared against a published limit is checkable. A synthesised 0–10 score is not.</li>
-          <li><b>No filling of gaps.</b> If a source has nothing, the report says so. Absence of evidence is a finding.</li>
+          <li><b>No predicted binding strengths.</b> Getting these right needs specialist software and lab confirmation. A made-up number is worse than none.</li>
+          <li><b>No single risk score.</b> You can check a measurement against a published limit yourself. You can't check a number out of ten.</li>
+          <li><b>It won't fill a gap.</b> When a database returns nothing, the report says nothing was found. That's a result too.</li>
         </ul>
       </div>
     </div>
@@ -110,35 +117,36 @@
     <p class="eyebrow">How it works</p>
     <h2>Six steps, in this order</h2>
     <p class="band-lede">
-      The order is not presentational. A structure cannot be fetched before an accession is
-      resolved, and nothing can be checked until the values exist.
+      The order matters. Each step needs what the one before it produced — there's no
+      structure to fetch until the protein has been identified, and nothing to check
+      until the figures exist.
     </p>
 
     <ol class="steps">
       <li>
         <span class="step-n">01</span>
         <h3>Resolve</h3>
-        <p>Your protein name becomes a reviewed UniProtKB entry with a stable accession. Your contaminant becomes a PubChem record with a real structure.</p>
+        <p>The protein name you typed is matched to a curated UniProtKB entry. The contaminant is matched to its PubChem record and real chemical structure.</p>
       </li>
       <li>
         <span class="step-n">02</span>
         <h3>Fetch</h3>
-        <p>The deposited AlphaFold structure is retrieved for that accession, with per-residue confidence — looked up, not folded locally.</p>
+        <p>The protein's AlphaFold structure is pulled from the public database, along with how confident the prediction is at every position.</p>
       </li>
       <li>
         <span class="step-n">03</span>
         <h3>Compute</h3>
-        <p>RDKit derives molecular weight, logP, TPSA and Lipinski violations from the structure. Same input, same answer, every time.</p>
+        <p>Molecular weight, logP, TPSA and Lipinski violations are measured from the contaminant's own structure. The same molecule always gives the same numbers.</p>
       </li>
       <li>
         <span class="step-n">04</span>
         <h3>Cite</h3>
-        <p>PubMed is searched for work on that protein and contaminant. You get the papers that exist, with PMIDs — or an explicit note that none are indexed.</p>
+        <p>PubMed is searched for research on that exact pairing. You get the papers that exist, with their IDs — or a clear note that none were found.</p>
       </li>
       <li>
         <span class="step-n">05</span>
         <h3>Compare</h3>
-        <p>A measured concentration is checked against published maximum levels in the EU, US and India, each naming its legal instrument.</p>
+        <p>Your lab result is set against the published maximum levels in the EU, US and India, each one naming the regulation it comes from.</p>
       </li>
       <li>
         <span class="step-n">06</span>
@@ -149,8 +157,8 @@
   </section>
 
   <section id="sources" class="band">
-    <p class="eyebrow">Data sources</p>
-    <h2>Six public databases, no private corpus</h2>
+    <p class="eyebrow">Where the data comes from</p>
+    <h2>Six public databases, nothing private</h2>
     <ul class="sourcelist">
       <li><a href="https://alphafold.ebi.ac.uk/" target="_blank" rel="noopener">AlphaFold DB</a><span>Protein structures &amp; pLDDT</span><em>Google DeepMind / EMBL-EBI · CC-BY-4.0</em></li>
       <li><a href="https://www.uniprot.org/" target="_blank" rel="noopener">UniProtKB</a><span>Protein identity &amp; sequence</span><em>CC-BY-4.0</em></li>
@@ -196,7 +204,7 @@
     <p class="eyebrow">Analysis</p>
     <h2>Run it</h2>
     <p class="band-lede">
-      Defaults describe a groundnut sample tested for aflatoxin B1 against chicken ovalbumin.
+      The fields start with a groundnut sample tested for aflatoxin B1, alongside chicken ovalbumin.
       Change any field. Results are looked up and shown directly — the findings come first, any written summary comes after.
     </p>
 

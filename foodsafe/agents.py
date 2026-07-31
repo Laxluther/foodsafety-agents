@@ -14,10 +14,9 @@ from __future__ import annotations
 import os
 
 from google.adk.agents import LlmAgent, SequentialAgent
-from google.adk.models.lite_llm import LiteLlm
 
-from . import adk_tools
-from .llm import DEFAULT_BASE_URL, DEFAULT_MODEL
+from . import adk_tools, llm
+from .llm import DEFAULT_MODEL, OLLAMA_BASE_URL, PROVIDER
 
 _HOUSE_RULES = """
 You are part of a food safety evidence system. Absolute rules:
@@ -33,21 +32,34 @@ You are part of a food safety evidence system. Absolute rules:
 """
 
 
-# LiteLLM defaults to a 600s timeout, which a large model partially offloaded to
-# CPU can exceed on a single generation - the reporter in particular, since it is
+# LiteLLM defaults to a 600s timeout, which a large local model offloaded to CPU
+# can exceed on a single generation - the reporter in particular, since it is
 # handed all four specialists' findings at once.
 LLM_TIMEOUT_SECONDS = int(os.environ.get("FOODSAFE_LLM_TIMEOUT", "3600"))
 
-# Keeping the model resident avoids paying the load cost again at every step of
-# the sequence; an 18GB model takes ~30s just to come back off disk.
+# Keeping a local model resident avoids paying the load cost at every step of the
+# sequence; an 18GB model takes ~30s just to come back off disk.
 OLLAMA_KEEP_ALIVE = os.environ.get("FOODSAFE_KEEP_ALIVE", "30m")
 
 
-def _model(model_name: str) -> LiteLlm:
-    """Route ADK through LiteLLM to a local Ollama model."""
+def _model(model_name: str):
+    """Return the model spec ADK should run these agents on.
+
+    Gemini is passed as a bare model id, which ADK routes through google.genai
+    using GEMINI_API_KEY. The local path goes through LiteLLM instead.
+    """
+    if PROVIDER == "gemini":
+        return model_name
+
+    # --- local Ollama path (previous default, still supported) -------------
+    # Selected with FOODSAFE_PROVIDER=ollama. Kept because it runs with no API
+    # key and sends nothing off the machine, which matters when the sample data
+    # is unpublished. Slower: a 26B model on a 6GB card takes minutes per run.
+    from google.adk.models.lite_llm import LiteLlm
+
     return LiteLlm(
         model=f"ollama_chat/{model_name}",
-        api_base=DEFAULT_BASE_URL,
+        api_base=OLLAMA_BASE_URL,
         timeout=LLM_TIMEOUT_SECONDS,
         keep_alive=OLLAMA_KEEP_ALIVE,
     )
